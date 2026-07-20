@@ -38,12 +38,19 @@ async def snipe_reminders(client):
             db.set_status(it["item_id"], "reminded")
             print(f"  [snipe-window] {it['target']} ends soon — ${it['landed']:.2f}", flush=True)
 
-async def scout_loop(targets):
-    demo = FORCE_DEMO or config.DEMO
-    poll = 45 if demo else config.POLL_SECONDS
-    matcher = Matcher(targets)
+async def scout_loop():
+    matcher, armed_on = None, None
     async with httpx_client() as client:
         while True:
+            targets = config.load_targets()
+            if not targets:
+                if armed_on != "waiting":
+                    print("[idle] no targets yet — finish setup in the browser tab", flush=True)
+                    armed_on = "waiting"
+                await asyncio.sleep(5); continue
+            if repr(targets) != armed_on:
+                matcher, armed_on = Matcher(targets), repr(targets)
+            demo = FORCE_DEMO or config.DEMO
             try:
                 if demo:
                     alerts = await process(client, ebay.demo_batch(targets, random.randint(2, 4)), matcher)
@@ -62,7 +69,7 @@ async def scout_loop(targets):
                     await snipe_reminders(client)
             except Exception as e:
                 print(f"[error] {type(e).__name__}: {e}", flush=True)
-            await asyncio.sleep(poll)
+            await asyncio.sleep(45 if demo else config.POLL_SECONDS)
 
 def httpx_client():
     import httpx
@@ -76,18 +83,13 @@ def main():
     if "setup" in sys.argv:
         wizard.run(); return
     updater.maybe_update()
-    targets = config.load_targets()
-    if not targets:
-        print("No targets.json found — launching setup wizard.\n")
-        wizard.run()
-        targets = config.load_targets()
     db.init()
     port = webui.start()
-    demo = FORCE_DEMO or config.DEMO
-    print(f"EbayDekho armed · mode={'DEMO' if demo else 'LIVE'} · behavior={config.MODE} · "
-          f"{len(targets)} targets · dashboard: http://127.0.0.1:{port}", flush=True)
+    state = "radar" if config.load_targets() else "setup"
+    print(f"EbayDekho v{__import__('ebaydekho').__version__} · opening http://127.0.0.1:{port} ({state}) — "
+          "this console is just a log, do everything in the browser tab", flush=True)
     try:
-        asyncio.run(scout_loop(targets))
+        asyncio.run(scout_loop())
     except KeyboardInterrupt:
         sys.exit(0)
 

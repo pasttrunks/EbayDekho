@@ -1,6 +1,7 @@
-import json, threading
+import json, threading, urllib.request, webbrowser
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from . import db, config
+from .setupui import SETUP_PAGE
 
 PAGE = """<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
 <title>EbayDekho // Deal Radar</title>
@@ -142,6 +143,7 @@ document.title=(last.stats.steals?`(${last.stats.steals}) `:"")+"EbayDekho // De
 
 let tabsBuilt=false;
 async function tick(){try{const j=await(await fetch("/api/items")).json();
+if(!j.configured){location.reload();return}
 mode.textContent=j.mode;mode.className="badge "+j.mode;mode.innerHTML="<i></i>"+j.mode;
 modechip.textContent=j.mode_label;
 seen.textContent=j.stats.seen;alerts.textContent=j.stats.alerts;steals.textContent=j.stats.steals;calls.textContent=j.stats.calls;
@@ -152,23 +154,96 @@ el.textContent=fmtLeft(ms);el.classList.toggle("urgent",ms!=null&&ms<6e5&&ms>0)}
 tick();setInterval(tick,15000);
 </script>"""
 
+def _configured():
+    return bool(config.load_targets())
+
+def _write_config(p):
+    (config.TARGETS_FILE).write_text(json.dumps({"targets": p["targets"]}, indent=2))
+    env = config.ROOT / ".env"
+    env.write_text("\n".join([
+        f"EBAY_CLIENT_ID={p.get('client_id', '')}", f"EBAY_CLIENT_SECRET={p.get('client_secret', '')}",
+        f"DISCORD_WEBHOOK_URL={p.get('discord', '')}", f"MODE={p.get('mode', 'notify')}",
+        f"POLL_SECONDS={int(p.get('poll', 600))}", "ZIP_CODE=", "MIN_FEEDBACK=10", "PORT=8787",
+    ]) + "\n")
+    # hot-apply to the running process
+    config.EBAY_CLIENT_ID = p.get("client_id", "")
+    config.EBAY_CLIENT_SECRET = p.get("client_secret", "")
+    config.DISCORD_WEBHOOK_URL = p.get("discord", "")
+    config.MODE = p.get("mode", "notify")
+    config.DEMO = not (config.EBAY_CLIENT_ID and config.EBAY_CLIENT_SECRET)
+
+def _validate_targets(targets):
+    if not isinstance(targets, list) or not targets:
+        return "need at least one target"
+    for t in targets:
+        if not t.get("name"): return "every target needs a name"
+        try:
+            s, m = float(t["steal"]), float(t["max"])
+            g = float(t.get("good") or m)
+        except (KeyError, ValueError, TypeError):
+            return f"bad prices on {t.get('name', '?')}"
+        if not (0 < s <= g <= m): return f"keep dream ≤ good ≤ max on {t['name']}"
+        t["steal"], t["good"], t["max"] = s, g, m
+        t.setdefault("keywords", [t["name"]]); t.setdefault("avoid", [])
+        t.setdefault("format", "any"); t.setdefault("condition", "any")
+    return None
+
 class H(BaseHTTPRequestHandler):
-    def log_message(self, *a): pass
-    def do_GET(self):
-        if self.path.startswith("/api/items"):
-            data = db.recent()
-            targets = config.load_targets()
-            data["mode"] = "DEMO" if config.DEMO else "LIVE"
-            data["mode_label"] = f"{len(targets)} TARGETS · MODE: {config.MODE.upper()}" + (" · SNIPE-ASSIST ON" if config.MODE == "snipe" else "")
-            data["targets"] = sorted({t["name"] for t in targets})
-            body = json.dumps(data).encode(); ctype = "application/json"
-        else:
-            body = PAGE.encode(); ctype = "text/html; charset=utf-8"
-        self.send_response(200); self.send_header("Content-Type", ctype)
-        self.send_header("Content-Length", str(len(body))); self.end_headers()
+    log_message = lambda *a: None
+
+    def _send(self, body, ctype="application/json", code=200):
+        self.send_response(code)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
         self.wfile.write(body)
 
-def start():
-    t = threading.Thread(target=ThreadingHTTPServer(("127.0.0.1", config.PORT), H).serve_forever, daemon=True)
-    t.start()
+    def do_GET(self):
+        if self.path.startswith("/api/items"):
+            targets = config.load_targets()
+            data = db.recent()
+            data.update(configured=_configured(),
+                mode="DEMO" if config.DEMO else "LIVE",
+                mode_label=f"{len(targets)} TARGETS · MODE: {config.MODE.upper()}" + (" · SNIPE-ASSIST ON" if config.MODE == "snipe" else ""),
+                targets=sorted({t["name"] for t in targets}))
+            self._send(json.dumps(data).encode())
+        elif self.path.startswith("/api/state"):
+            self._send(json.dumps({"configured": _configured()}).encode())
+        elif _configured():
+            self._send(PAGE.encode(), "text/html; charset=utf-8")
+        else:
+            self._send(SETUP_PAGE.encode(), "text/html; charset=utf-8")
+
+    def do_POST(self):
+        try:
+            p = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
+        except Exception:
+            return self._send(b'{"ok":false,"error":"bad json"}', code=400)
+        if self.path.startswith("/api/discord-test"):
+            url = p.get("url", "")
+            if not url.startswith("https://discord.com/api/webhooks/"):
+                return self._send(b'{"ok":false}')
+            try:
+                req = urllib.request.Request(url, headers={"Content-Type": "application/json"},
+                    data=json.dumps({"username": "EbayDekho", "content": "🎯 EbayDekho connected — alerts will land here."}).encode())
+                urllib.request.urlopen(req, timeout=10)
+                return self._send(b'{"ok":true}')
+            except Exception:
+                return self._send(b'{"ok":false}')
+        if self.path.startswith("/api/setup"):
+            err = _validate_targets(p.get("targets"))
+            if err: return self._send(json.dumps({"ok": False, "error": err}).encode(), code=400)
+            try:
+                _write_config(p)
+            except Exception as e:
+                return self._send(json.dumps({"ok": False, "error": str(e)}).encode(), code=500)
+            print(f"[setup] {len(p['targets'])} targets armed via web UI · mode={config.MODE} · demo={config.DEMO}", flush=True)
+            return self._send(json.dumps({"ok": True, "demo": config.DEMO, "targets": len(p["targets"])}).encode())
+        self._send(b'{"ok":false}', code=404)
+
+def start(open_browser=True):
+    server = ThreadingHTTPServer(("127.0.0.1", config.PORT), H)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    if open_browser:
+        threading.Timer(0.8, lambda: webbrowser.open(f"http://127.0.0.1:{config.PORT}")).start()
     return config.PORT

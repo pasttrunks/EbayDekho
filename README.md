@@ -10,6 +10,7 @@
 
 Good deals on eBay die in minutes. EbayDekho is the always-on spotter:
 
+- **Browser setup** — double-click and a neon setup page opens in your browser; configure everything without touching a terminal
 - **Sweep** — polls the official eBay Browse API for each of your targets (free dev key, 5,000 calls/day)
 - **Judge** — matches titles to your targets, computes *landed price* (bid + shipping), scores it STEAL / GOOD / FAIR against your bands, and auto-trashes junk (`box only`, `for parts`, …), scam-priced BINs, and shaky sellers
 - **Alert** — rich Discord embeds in seconds, `@here` only on steals
@@ -25,13 +26,13 @@ Good deals on eBay die in minutes. EbayDekho is the always-on spotter:
   </a>
 </p>
 
-**Windows — the easy way:** download `EbayDekho.exe`, put it wherever you want it to live, double-click. SmartScreen will say "unrecognized app" (unsigned open-source build) → **More info → Run anyway**. The wizard starts, you answer a few questions, the radar is live. No Python, no terminal.
+**Windows — the easy way:** download `EbayDekho.exe`, put it wherever you want it to live, double-click. SmartScreen will say "unrecognized app" (unsigned open-source build) → **More info → Run anyway**. Your browser opens to the setup page — no terminal questions, no Python.
 
 **Windows — one-liner (source install):** paste into PowerShell:
 ```powershell
 irm https://raw.githubusercontent.com/pasttrunks/EbayDekho/main/install.ps1 | iex
 ```
-Installs Python if needed, puts EbayDekho in `%USERPROFILE%\EbayDekho`, adds a Desktop shortcut, launches the wizard.
+Installs Python if needed, puts EbayDekho in `%USERPROFILE%\EbayDekho`, adds a Desktop shortcut, opens the setup page.
 
 **From source (any OS):**
 ```bash
@@ -41,10 +42,10 @@ python -m venv .venv
 .venv\Scripts\activate        # Windows
 # source .venv/bin/activate   # macOS / Linux
 pip install -r requirements.txt
-python ebaydekho.py           # first run = setup wizard, then it hunts
+python ebaydekho.py           # opens the setup page in your browser, then it hunts
 ```
 
-The wizard asks, in plain English: what are you hunting, what words mean junk, your dream/good/max prices, auction vs BIN, category, Discord webhook, and whether you want `notify` or `snipe` mode. It writes `targets.json` + `.env` and test-fires your Discord. That's the whole configuration.
+**Setup happens in your browser.** First run opens a setup page at `127.0.0.1:8787`: name your targets, set dream/good/max prices on a live band preview, list junk words, pick auction vs BIN and category, paste a Discord webhook (there's a test-ping button), choose `notify` or `snipe` mode — then hit **ARM THE RADAR**. It writes `targets.json` + `.env` and the dashboard fades in. That's the whole configuration. (Prefer terminals? `python ebaydekho.py setup` gives you the CLI wizard.)
 
 No eBay keys yet? It runs in **DEMO mode** with fake listings so you can see everything working. Get free keys at [developer.ebay.com](https://developer.ebay.com/join) (My Account → Application Keys → Production keyset) and paste them into `.env`.
 
