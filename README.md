@@ -1,6 +1,6 @@
 # EbayDekho 🎯
 
-**Your eBay deal radar.** *Dekho* (देखो) — "look / watch". Tell it what you're hunting and what it's worth — EbayDekho sweeps eBay around the clock, judges every listing against your price bands, pings you on Discord, and (optionally) taps you on the shoulder when it's time to snipe.
+**Your eBay deal radar.** *Dekho* (দেখো) — "look / watch". Tell it what you're hunting and what it's worth — EbayDekho sweeps eBay around the clock, judges every listing against your price bands, pings you on Discord, and (optionally) taps you on the shoulder when it's time to snipe.
 
 > ebay dekho. find it. judge it. snipe it.
 
