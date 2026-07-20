@@ -11,7 +11,8 @@
 Good deals on eBay die in minutes. EbayDekho is the always-on spotter:
 
 - **Browser setup** — double-click and a neon setup page opens in your browser; configure everything without touching a terminal
-- **Sweep** — polls the official eBay Browse API for each of your targets (free dev key, 5,000 calls/day)
+- **Zero-account start** — Community Mode reads eBay's public search pages: no API keys, no developer signup, no rejection letters. Works the second you finish setup
+- **Sweep** — polls eBay for each of your targets: official Browse API if you add free keys (preferred), polite keyless scraping otherwise. First sweep per target silently seeds a baseline — no alert tsunami
 - **Judge** — matches titles to your targets, computes *landed price* (bid + shipping), scores it STEAL / GOOD / FAIR against your bands, and auto-trashes junk (`box only`, `for parts`, …), scam-priced BINs, and shaky sellers
 - **Alert** — rich Discord embeds in seconds, `@here` only on steals
 - **Snipe (assist)** — T-10-minute "snipe window" reminders with a suggested max bid, plus a Gixen-friendly workflow for true last-second server-side bidding
@@ -47,7 +48,7 @@ python ebaydekho.py           # opens the setup page in your browser, then it hu
 
 **Setup happens in your browser.** First run opens a setup page at `127.0.0.1:8787`: name your targets, set dream/good/max prices on a live band preview, list junk words, pick auction vs BIN and category, paste a Discord webhook (there's a test-ping button), choose `notify` or `snipe` mode — then hit **ARM THE RADAR**. It writes `targets.json` + `.env` and the dashboard fades in. That's the whole configuration. (Prefer terminals? `python ebaydekho.py setup` gives you the CLI wizard.)
 
-No eBay keys yet? It runs in **DEMO mode** with fake listings so you can see everything working. Get free keys at [developer.ebay.com](https://developer.ebay.com/join) (My Account → Application Keys → Production keyset) and paste them into `.env`.
+**No eBay keys?** That's the default, not a problem — Community Mode hunts *real* listings immediately with zero accounts. Free keys from [developer.ebay.com](https://developer.ebay.com/join) are an optional upgrade for officially-sanctioned data (paste into `.env`). Got rejected by the developer program? You're exactly who Community Mode is for. (Want fake listings for a UI demo anyway? `python ebaydekho.py demo`.)
 
 ## Modes
 
@@ -98,7 +99,8 @@ Dashboard is bound to `127.0.0.1` only — invisible to your LAN and the interne
 
 ## Safety & fair play
 
-- Uses only the official eBay Browse API for reading. Respect the 5k calls/day default quota (EbayDekho budgets and backs off on 429).
+- **Reading:** official Browse API when keys exist (5k calls/day budgeted, backs off on 429). Community Mode is read-only, one page at a time with human-ish jitter, ≥15-min sweeps, and a hard 15-min backoff on any robot check — keep it that way; aggressive scraping gets IPs flagged.
+- Dashboard binds `127.0.0.1` only; write endpoints are localhost-only; secrets never leave `.env`.
 - Bids are binding. EbayDekho never bids; when *you* bid, bid your true max — eBay proxy bidding means you pay second-price + one increment.
 - Sniping is allowed by eBay. Automating your account via unofficial means isn't — that's why it's not in this repo.
 

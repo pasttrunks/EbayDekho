@@ -220,10 +220,12 @@ class H(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path.startswith("/api/items"):
             targets = config.load_targets()
+            demo = getattr(config, "FORCE_DEMO", False)
+            source = "DEMO" if demo else ("API" if (config.EBAY_CLIENT_ID and config.EBAY_CLIENT_SECRET) else "SCRAPE")
             data = db.recent()
             data.update(configured=_configured(),
-                mode="DEMO" if config.DEMO else "LIVE",
-                mode_label=f"{len(targets)} TARGETS · MODE: {config.MODE.upper()}" + (" · SNIPE-ASSIST ON" if config.MODE == "snipe" else ""),
+                mode="DEMO" if demo else "LIVE",
+                mode_label=f"{len(targets)} TARGETS · {config.MODE.upper()} · SRC: {source}" + (" · SNIPE-ASSIST ON" if config.MODE == "snipe" else ""),
                 targets=sorted({t["name"] for t in targets}))
             self._send(json.dumps(data).encode())
         elif self.path.startswith("/api/state"):
@@ -267,8 +269,9 @@ class H(BaseHTTPRequestHandler):
                 _write_config(p)
             except Exception as e:
                 return self._send(json.dumps({"ok": False, "error": str(e)}).encode(), code=500)
-            print(f"[setup] {len(p['targets'])} targets armed via web UI · mode={config.MODE} · demo={config.DEMO}", flush=True)
-            return self._send(json.dumps({"ok": True, "demo": config.DEMO, "targets": len(p["targets"])}).encode())
+            source = "api" if (config.EBAY_CLIENT_ID and config.EBAY_CLIENT_SECRET) else "scrape"
+            print(f"[setup] {len(p['targets'])} targets armed via web UI · mode={config.MODE} · source={source}", flush=True)
+            return self._send(json.dumps({"ok": True, "source": source, "demo": False, "targets": len(p["targets"])}).encode())
         self._send(b'{"ok":false}', code=404)
 
 def start(open_browser=True):

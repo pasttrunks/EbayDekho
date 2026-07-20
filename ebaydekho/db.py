@@ -36,6 +36,17 @@ def save_item(it):
 def set_status(item_id, status):
     with conn() as c: c.execute("UPDATE items SET status=? WHERE item_id=?", (status, item_id))
 
+def pending_hydration(limit=6):
+    """Alerted auctions missing an exact end time (scrape source)."""
+    with conn() as c:
+        return [dict(r) for r in c.execute(
+            "SELECT item_id, url FROM items WHERE status='alerted' AND buying LIKE '%AUCTION%' "
+            "AND (end_time IS NULL OR end_time='') LIMIT ?", (limit,)).fetchall()]
+
+def update_endtime(item_id, iso):
+    with conn() as c:
+        c.execute("UPDATE items SET end_time=? WHERE item_id=?", (iso, item_id))
+
 def due_reminders(minutes=10):
     """Alerted auctions ending soon that haven't had a snipe-window reminder."""
     soon = (datetime.now(timezone.utc) + timedelta(minutes=minutes)).isoformat()

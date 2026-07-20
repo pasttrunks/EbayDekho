@@ -159,10 +159,10 @@ summary:hover{color:var(--cyan)}
 <p class=hint>In your Discord server: <b>Settings → Integrations → Webhooks → New Webhook → Copy URL</b>. Takes 30 seconds.</p>
 <button class=testbtn id=testhook>SEND TEST PING</button>
 <div class=testresult id=hookres></div>
-<label style="margin-top:18px">EBAY API KEYS <span style="opacity:.6">(free — unlocks LIVE mode)</span></label>
-<input id=c-id placeholder="Client ID">
-<input id=c-sec type=password placeholder="Client Secret" style="margin-top:8px">
-<p class=hint>Get them free at <b>developer.ebay.com</b> → My Account → Application Keys → Production keyset. ~10 min, no approval needed for search.</p>
+<label style="margin-top:18px">EBAY API KEYS <span style="opacity:.6">(optional upgrade — blank works too)</span></label>
+<input id=c-id placeholder="Client ID (optional)">
+<input id=c-sec type=password placeholder="Client Secret (optional)" style="margin-top:8px">
+<p class=hint><b>No keys? No problem.</b> Community Mode reads eBay's public search pages — zero accounts, works instantly. Keys (free at <b>developer.ebay.com</b>) give cleaner, officially-sanctioned data. Got rejected? You're exactly who Community Mode is for.</p>
 <button class=testbtn id=testkeys>CHECK KEYS</button>
 <div class=testresult id=keyres></div>
 </div>
@@ -269,7 +269,7 @@ discord:$("c-hook").value.trim(),client_id:$("c-id").value.trim(),client_secret:
 mode,poll:600})}).then(r=>r.json()).catch(e=>({ok:false,error:String(e)}));
 if(!r.ok){$("arm").disabled=false;$("arm").textContent="⚡ ARM THE RADAR";
 return $("e3").textContent=r.error||"setup failed — check the console window"}
-$("ov-sub").textContent=(r.demo?"DEMO mode (no eBay keys) · ":"LIVE mode · ")+r.targets+" target"+(r.targets>1?"s":"")+" · "+mode;
+$("ov-sub").textContent=(r.source==="api"?"LIVE · eBay API":"LIVE · community scrape (keyless)")+" · "+r.targets+" target"+(r.targets>1?"s":"")+" · "+mode;
 $("overlay").classList.add("show");
 setTimeout(()=>location.href="/",2600)};
 </script>"""

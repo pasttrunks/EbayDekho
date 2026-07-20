@@ -43,6 +43,7 @@ GLOBAL_EXCLUDE = [
     "box only", "empty box", "picture", "jpeg", "digital download", "read description",
     "for parts", "parts only", "not working", "as-is", "as is", "broken", "for repair",
     "sticker", "lego", "framed", "preorder", "pre-order", "manual only", "case only",
+    "heatsink", "shroud", "fan only", "waterblock", "backplate",
 ]
 
 ALERT_VERDICTS = {"STEAL", "GOOD"}   # FAIR -> dashboard only
