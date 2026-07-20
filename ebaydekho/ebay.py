@@ -21,8 +21,10 @@ def _norm_item(s):
     for o in s.get("shippingOptions", []) or []:
         c = (o.get("shippingCost") or {}).get("value")
         if c is not None: ship = float(c); break
+    parts = s["itemId"].split("|")          # REST id "v1|123456789012|0" -> legacy item number
     return {
-        "item_id": s["itemId"], "title": s.get("title", ""), "url": s.get("itemWebUrl", ""),
+        "item_id": s["itemId"], "legacy_id": parts[1] if len(parts) > 1 else s["itemId"],
+        "title": s.get("title", ""), "url": s.get("itemWebUrl", ""),
         "image": (s.get("image") or {}).get("imageUrl", ""),
         "buying": ",".join(s.get("buyingOptions", [])), "price": float(price.get("value", 0)),
         "shipping": ship, "bids": s.get("bidCount", 0),
@@ -72,7 +74,8 @@ def demo_batch(targets, n=3):
         title = f"{kw} {_JUNK[0] if junk else random.choice(_FLAVOR)}"
         price = round(random.uniform(t["steal"] * 0.6, t["max"] * 1.25), 2)
         out.append({
-            "item_id": f"demo{int(time.time())}{i}", "title": title, "url": "https://www.ebay.com/",
+            "item_id": f"demo{int(time.time())}{i}", "legacy_id": f"10{int(time.time()) % 10**9:09d}{i}",
+            "title": title, "url": "https://www.ebay.com/",
             "image": "", "buying": "AUCTION" if auction else "FIXED_PRICE",
             "price": price, "shipping": random.choice([0, 0, 9.99, 14.5]),
             "bids": random.randint(0, 14) if auction else 0,

@@ -16,15 +16,19 @@ def init():
             buying TEXT, price REAL, shipping REAL, landed REAL, bids INTEGER,
             seller TEXT, fb_pct REAL, fb_count INTEGER, condition TEXT,
             end_time TEXT, first_seen TEXT, verdict TEXT, status TEXT, note TEXT,
-            steal REAL, good REAL, fair REAL)""")
+            steal REAL, good REAL, fair REAL, legacy_id TEXT)""")
         c.execute("CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT)")
+        cols = [r[1] for r in c.execute("PRAGMA table_info(items)")]   # migrate pre-0.3 db
+        if "legacy_id" not in cols:
+            c.execute("ALTER TABLE items ADD COLUMN legacy_id TEXT")
 
 def save_item(it):
     with conn() as c:
+        it.setdefault("legacy_id", "")
         cur = c.execute("INSERT OR IGNORE INTO items VALUES "
             "(:item_id,:title,:target,:url,:image,:buying,:price,:shipping,:landed,:bids,"
             ":seller,:fb_pct,:fb_count,:condition,:end_time,:first_seen,:verdict,:status,:note,"
-            ":steal,:good,:fair)", it)
+            ":steal,:good,:fair,:legacy_id)", it)
         if cur.rowcount == 0:
             c.execute("UPDATE items SET price=:price, landed=:landed, bids=:bids WHERE item_id=:item_id", it)
         return cur.rowcount == 1

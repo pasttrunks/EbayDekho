@@ -70,6 +70,16 @@ main{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:
 .note{font-size:11px;color:var(--violet)}
 a.btn{background:linear-gradient(135deg,#1d3f74,#2b6cb0);color:#eaf2ff;text-decoration:none;text-align:center;border-radius:9px;padding:9px;font-weight:700;font-size:12px;letter-spacing:.08em;transition:.2s}
 a.btn:hover{filter:brightness(1.25);box-shadow:0 4px 18px rgba(43,108,176,.4)}
+a.ghost{background:#0b1226!important;border:1px solid var(--line);color:var(--cyan)!important}
+a.ghost:hover{border-color:var(--cyan);box-shadow:0 0 14px rgba(92,214,255,.25)}
+.btns{display:flex;gap:8px}.btns .btn,.btns .ghost{flex:1}
+.bar{display:flex;align-items:center;gap:10px;margin:0 22px 10px;padding:9px 14px;border-radius:10px;font:12px "JetBrains Mono",monospace}
+.bar.demo{background:rgba(255,209,102,.08);border:1px solid rgba(255,209,102,.35);color:var(--yellow)}
+.bar.help{background:rgba(92,214,255,.06);border:1px solid rgba(92,214,255,.3);color:var(--dim)}
+.bar a{color:var(--cyan)}
+.bar .x{margin-left:auto;cursor:pointer;color:var(--dim)}
+.setuplink{margin-left:10px;font:700 10px "JetBrains Mono",monospace;letter-spacing:.12em;color:var(--dim);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:5px 10px}
+.setuplink:hover{color:var(--cyan);border-color:var(--cyan)}
 .empty{grid-column:1/-1;text-align:center;padding:80px 0;color:var(--dim)}
 .empty .big{width:120px;height:120px;margin:0 auto 18px}
 #toasts{position:fixed;top:16px;right:16px;display:flex;flex-direction:column;gap:8px;z-index:9}
@@ -81,6 +91,7 @@ a.btn:hover{filter:brightness(1.25);box-shadow:0 4px 18px rgba(43,108,176,.4)}
 <div class=radar><i></i></div>
 <h1>EBAYDEKHO<small>EBAY DEAL RADAR</small></h1>
 <span class="badge DEMO" id=mode><i></i>DEMO</span>
+<a class=setuplink href="/setup">⚙ SETUP</a>
 </header>
 <div class=stats>
 <div class=stat><b id=seen>0</b><span>SCANNED</span></div>
@@ -89,6 +100,7 @@ a.btn:hover{filter:brightness(1.25);box-shadow:0 4px 18px rgba(43,108,176,.4)}
 <div class=stat><b id=calls>0</b><span>API CALLS</span></div>
 <span class=cap id=modechip></span>
 </div>
+<div id=bars></div>
 <div class=ticker><div class=ticker-track id=ticker><b>///&nbsp;&nbsp;BOOTING RADAR …</b></div></div>
 <nav class=tabs id=tabs></nav>
 <main id=grid></main>
@@ -132,7 +144,12 @@ return`<div class="card ${i.verdict}${isNew?" new":""}" style="animation-delay:$
 <div class=meta><span class="ends${leftMs(i.end_time)!=null&&leftMs(i.end_time)<6e5?" urgent":""}" data-end="${i.end_time||""}">${fmtLeft(leftMs(i.end_time))}</span>
 <span>${i.bids?i.bids+" bids · ":""}${i.fb_pct}% · ${i.fb_count}fb</span></div>
 ${i.note?`<div class=note>◈ ${esc(i.note)}</div>`:""}
-<a class=btn href="${esc(i.url)}" target=_blank>OPEN ON EBAY ↗</a></div>`}
+<div class=btns><a class=btn href="${esc(i.url)}" target=_blank>OPEN ON EBAY ↗</a>
+${i.buying.includes("AUCTION")&&i.end_time?`<a class="btn ghost" href="#" onclick="copyGixen(event,'${esc(i.legacy_id||i.item_id)}',${(Math.min(i.fair-i.shipping,i.fair)-0.01).toFixed(2)})">⌁ GIXEN</a>`:""}</div></div>`}
+
+function copyGixen(e,id,max){e.preventDefault();
+navigator.clipboard.writeText(id);
+toast(`⌁ item # <b>${id}</b> copied — set max <b>$${max}</b> at gixen.com · group it = first win cancels the rest`)}
 
 function render(){
 const items=last.items.filter(i=>(fVerdict=="ALL"||i.verdict==fVerdict)&&(fTarget=="ALL"||i.target==fTarget));
@@ -146,6 +163,8 @@ async function tick(){try{const j=await(await fetch("/api/items")).json();
 if(!j.configured){location.reload();return}
 mode.textContent=j.mode;mode.className="badge "+j.mode;mode.innerHTML="<i></i>"+j.mode;
 modechip.textContent=j.mode_label;
+bars.innerHTML=(j.mode=="DEMO"?`<div class="bar demo">⚠ DEMO MODE — listings are fake. Add your free eBay keys in <a href="/setup">SETUP</a> to go live.</div>`:"")
++(!localStorage.ed_help?`<div class="bar help">HOW IT WORKS ▸ we sweep eBay every ~10 min → Discord ping when a deal matches your bands → auctions: be in the Discord thread at the snipe window.<span class=x onclick="localStorage.ed_help=1;this.parentElement.remove()">✕</span></div>`:"");
 seen.textContent=j.stats.seen;alerts.textContent=j.stats.alerts;steals.textContent=j.stats.steals;calls.textContent=j.stats.calls;
 if(!tabsBuilt){buildTabs(j.targets);tabsBuilt=true}
 last=j;render();j.items.forEach(i=>known.add(i.item_id));first=false}catch(e){}}
@@ -209,6 +228,8 @@ class H(BaseHTTPRequestHandler):
             self._send(json.dumps(data).encode())
         elif self.path.startswith("/api/state"):
             self._send(json.dumps({"configured": _configured()}).encode())
+        elif self.path.startswith("/setup"):
+            self._send(SETUP_PAGE.encode(), "text/html; charset=utf-8")
         elif _configured():
             self._send(PAGE.encode(), "text/html; charset=utf-8")
         else:
@@ -219,6 +240,15 @@ class H(BaseHTTPRequestHandler):
             p = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
         except Exception:
             return self._send(b'{"ok":false,"error":"bad json"}', code=400)
+        if self.path.startswith("/api/ebay-test"):
+            import base64, httpx as _h
+            auth = base64.b64encode(f"{p.get('id', '')}:{p.get('secret', '')}".encode()).decode()
+            try:
+                r = _h.post(config.TOKEN_URL, headers={"Authorization": f"Basic {auth}"},
+                    data={"grant_type": "client_credentials", "scope": "https://api.ebay.com/oauth/api_scope"}, timeout=12)
+                return self._send(json.dumps({"ok": r.status_code == 200}).encode())
+            except Exception:
+                return self._send(b'{"ok":false}')
         if self.path.startswith("/api/discord-test"):
             url = p.get("url", "")
             if not url.startswith("https://discord.com/api/webhooks/"):

@@ -31,6 +31,8 @@ async def send_alert(client, it):
         ],
         "footer": {"text": f"ebaydekho · {it['note']}"},
     }
+    if it.get("legacy_id") and "AUCTION" in it["buying"]:
+        embed["fields"].append({"name": "Item # (Gixen)", "value": f"`{it['legacy_id']}`", "inline": True})
     if it["image"]: embed["thumbnail"] = {"url": it["image"]}
     payload = {"username": "EbayDekho", "embeds": [embed]}
     if it["verdict"] == "STEAL": payload["content"] = "@here STEAL detected"
@@ -39,13 +41,15 @@ async def send_alert(client, it):
 async def send_snipe_reminder(client, it, minutes=10):
     left = _ts(it["end_time"])
     max_bid = round(min(it["fair"] - it["shipping"], it["fair"]) - 0.01, 2)
+    legacy = it.get("legacy_id") or it["item_id"]
     embed = {
         "title": f"SNIPE WINDOW: {it['target']}", "url": it["url"], "color": COLORS["SNIPE"],
         "description": (f"{it['title'][:150]}\n\n**Suggested max bid: ${max_bid:.2f}** "
                         f"(your max ${it['fair']:.0f} − ${it['shipping']:.2f} ship)\n"
                         f"Ends <t:{left}:R> · currently ${it['price']:.2f} with {it['bids']} bids\n\n"
-                        "Manual: open the link and bid in the last 10 seconds.\n"
-                        "Gixen: schedule item `" + it["item_id"][-12:] + "` at your max — group it so first win cancels the rest."),
+                        "**Manual:** open the link and bid in the last 10 seconds.\n"
+                        f"**Gixen:** item `{legacy}` · max `{max_bid}` · group `{it['target']}`\n"
+                        "*(group = first win cancels the rest — set it if you only need one)*"),
         "footer": {"text": f"ebaydekho snipe-assist · fires ~{minutes} min before close"},
     }
     payload = {"username": "EbayDekho", "content": "@here snipe window", "embeds": [embed]}
