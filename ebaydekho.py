@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 
 sys.dont_write_bytecode = True
 
-from ebaydekho import config, db, ebay, notify, webui, wizard
+from ebaydekho import config, db, ebay, notify, updater, webui, wizard
 from ebaydekho.valuator import Matcher, evaluate
 
 FORCE_DEMO = "demo" in sys.argv
@@ -75,6 +75,7 @@ def main():
         pass
     if "setup" in sys.argv:
         wizard.run(); return
+    updater.maybe_update()
     targets = config.load_targets()
     if not targets:
         print("No targets.json found — launching setup wizard.\n")

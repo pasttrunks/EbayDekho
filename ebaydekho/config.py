@@ -1,7 +1,10 @@
-import os, json
+import os, sys, json
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+if getattr(sys, "frozen", False):
+    ROOT = Path(sys.executable).resolve().parent   # PyInstaller exe: config lives next to the exe
+else:
+    ROOT = Path(__file__).resolve().parent.parent
 
 def _load_dotenv():
     env = ROOT / ".env"

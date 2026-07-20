@@ -1,7 +1,8 @@
 import json, sys
 from pathlib import Path
+from . import config
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = config.ROOT
 
 BANNER = r"""
    _____ _             ___      _    _

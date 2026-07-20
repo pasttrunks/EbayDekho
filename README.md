@@ -15,9 +15,25 @@ Good deals on eBay die in minutes. EbayDekho is the always-on spotter:
 - **Alert** — rich Discord embeds in seconds, `@here` only on steals
 - **Snipe (assist)** — T-10-minute "snipe window" reminders with a suggested max bid, plus a Gixen-friendly workflow for true last-second server-side bidding
 - **Dashboard** — a neon radar UI at `http://127.0.0.1:8787` with value meters, ticking countdowns, and filters. Loopback-only: nobody else can see it
+- **Auto-updates** — checks GitHub Releases on startup, shows you the release notes for every new version, and updates itself only after you say yes (`AUTO_UPDATE=off` in `.env` to disable)
 
-## Quickstart (5 minutes)
+## Install
 
+<p align="center">
+  <a href="https://github.com/pasttrunks/EbayDekho/releases/latest/download/EbayDekho.exe">
+    <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20INSTALL%20NOW-EbayDekho.exe-2ee6a8?style=for-the-badge" alt="Install Now" height="56">
+  </a>
+</p>
+
+**Windows — the easy way:** download `EbayDekho.exe`, put it wherever you want it to live, double-click. SmartScreen will say "unrecognized app" (unsigned open-source build) → **More info → Run anyway**. The wizard starts, you answer a few questions, the radar is live. No Python, no terminal.
+
+**Windows — one-liner (source install):** paste into PowerShell:
+```powershell
+irm https://raw.githubusercontent.com/pasttrunks/EbayDekho/main/install.ps1 | iex
+```
+Installs Python if needed, puts EbayDekho in `%USERPROFILE%\EbayDekho`, adds a Desktop shortcut, launches the wizard.
+
+**From source (any OS):**
 ```bash
 git clone https://github.com/pasttrunks/EbayDekho.git
 cd EbayDekho
