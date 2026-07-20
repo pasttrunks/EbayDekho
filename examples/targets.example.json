@@ -1,0 +1,33 @@
+{
+  "_comment": "Used-GPU hunting under a $300-ish budget (the CholEbay setup). More specific targets (XT/Ti/Super variants) MUST come before their base models — longest/earliest keyword wins. Copy to targets.json (repo root) and edit.",
+  "targets": [
+    {
+      "name": "RX 6800 XT",
+      "keywords": ["rx 6800 xt", "6800xt", "rx6800xt"],
+      "avoid": [],
+      "steal": 285, "good": 310, "max": 345,
+      "format": "any", "condition": "used", "category_id": 27386
+    },
+    {
+      "name": "RX 6800",
+      "keywords": ["rx 6800", "rx6800", "6800 non xt"],
+      "avoid": ["xt"],
+      "steal": 265, "good": 300, "max": 330,
+      "format": "any", "condition": "used", "category_id": 27386
+    },
+    {
+      "name": "RTX 3080",
+      "keywords": ["rtx 3080", "rtx3080", "3080 10gb"],
+      "avoid": ["ti", "12gb", "laptop"],
+      "steal": 265, "good": 300, "max": 335,
+      "format": "any", "condition": "used", "category_id": 27386
+    },
+    {
+      "name": "RX 6700 XT",
+      "keywords": ["rx 6700 xt", "6700xt", "rx6700xt"],
+      "avoid": [],
+      "steal": 185, "good": 225, "max": 250,
+      "format": "any", "condition": "used", "category_id": 27386
+    }
+  ]
+}

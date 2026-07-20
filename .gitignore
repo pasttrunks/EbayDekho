@@ -1,0 +1,6 @@
+.env
+targets.json
+ebaydekho.db
+__pycache__/
+*.pyc
+.venv/
