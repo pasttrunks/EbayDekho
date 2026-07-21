@@ -63,7 +63,7 @@ def maybe_update():
     if not getattr(sys, "frozen", False):
         print("  Source install — update with:  git pull   (or re-run install.ps1)\n", flush=True)
         return
-    if sys.stdin.isatty():
+    if sys.stdin and sys.stdin.isatty():
         if input("  Update now? [Y/n] ").strip().lower() in ("n", "no"):
             print("  Skipped — staying on this version.\n", flush=True)
             return
