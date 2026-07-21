@@ -10,13 +10,13 @@
 
 Good deals on eBay die in minutes. EbayDekho is the always-on spotter:
 
-- **Browser setup** — double-click and a neon setup page opens in your browser; configure everything without touching a terminal
+- **Desktop app** — standalone window, no browser or terminal needed. Close to tray, click to restore
 - **Zero-account start** — Community Mode reads eBay's public search pages: no API keys, no developer signup, no rejection letters. Works the second you finish setup
 - **Sweep** — polls eBay for each of your targets: official Browse API if you add free keys (preferred), polite keyless scraping otherwise. First sweep per target silently seeds a baseline — no alert tsunami
 - **Judge** — matches titles to your targets, computes *landed price* (bid + shipping), scores it STEAL / GOOD / FAIR against your bands, and auto-trashes junk (`box only`, `for parts`, …), scam-priced BINs, and shaky sellers
 - **Alert** — rich Discord embeds in seconds, `@here` only on steals
 - **Snipe (assist)** — T-10-minute "snipe window" reminders with a suggested max bid, plus a Gixen-friendly workflow for true last-second server-side bidding
-- **Dashboard** — a neon radar UI at `http://127.0.0.1:8787` with value meters, ticking countdowns, and filters. Loopback-only: nobody else can see it
+- **Dashboard** — neon radar UI with value meters, ticking countdowns, sparkline price history, and real-time SSE push. Inside the app window — no URL needed
 - **Auto-updates** — checks GitHub Releases on startup, shows you the release notes for every new version, and updates itself only after you say yes (`AUTO_UPDATE=off` in `.env` to disable)
 
 ## Install
@@ -27,7 +27,7 @@ Good deals on eBay die in minutes. EbayDekho is the always-on spotter:
   </a>
 </p>
 
-**Windows — the easy way:** download `EbayDekho.exe`, put it wherever you want it to live, double-click. SmartScreen will say "unrecognized app" (unsigned open-source build) → **More info → Run anyway**. Your browser opens to the setup page — no terminal questions, no Python.
+**Windows — the easy way:** download `EbayDekho.exe`, put it wherever you want it to live, double-click. SmartScreen will say "unrecognized app" (unsigned open-source build) → **More info → Run anyway**. The EbayDekho desktop window opens — no terminal, no browser, no Python.
 
 **Windows — one-liner (source install):** paste into PowerShell:
 ```powershell
