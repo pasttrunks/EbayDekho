@@ -7,3 +7,6 @@ __pycache__/
 build/
 dist/
 *.spec
+err.log
+out.log
+*.log

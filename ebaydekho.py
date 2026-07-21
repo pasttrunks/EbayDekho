@@ -62,7 +62,7 @@ async def scout_loop():
                         if source == "api":
                             status, items = await ebay.search(client, t)
                         else:
-                            status, items = await scraper.fetch_search(client, t)
+                            status, items = await scraper.fetch_search(t)
                         if status in ("RATE_LIMITED", "BLOCKED"):
                             print(f"[{source}] throttled — backing off 15 min", flush=True)
                             await asyncio.sleep(900); break
@@ -79,7 +79,7 @@ async def scout_loop():
                 if config.MODE == "snipe":
                     if source == "scrape":
                         for it in db.pending_hydration():
-                            iso = await scraper.fetch_end_time(client, it["url"])
+                            iso = await scraper.fetch_end_time(it["url"])
                             if iso:
                                 db.update_endtime(it["item_id"], iso)
                     await snipe_reminders(client)
@@ -101,14 +101,10 @@ def main():
         wizard.run(); return
     updater.maybe_update()
     db.init()
-    port = webui.start()
-    state = "radar" if config.load_targets() else "setup"
-    print(f"EbayDekho v{__import__('ebaydekho').__version__} · opening http://127.0.0.1:{port} ({state}) — "
-          "this console is just a log, do everything in the browser tab", flush=True)
-    try:
-        asyncio.run(scout_loop())
-    except KeyboardInterrupt:
-        sys.exit(0)
+    from ebaydekho import desktop
+    port = webui.start(open_browser=False)
+    threading.Thread(target=lambda: asyncio.run(scout_loop()), daemon=True).start()
+    desktop.start(port)
 
 if __name__ == "__main__":
     main()

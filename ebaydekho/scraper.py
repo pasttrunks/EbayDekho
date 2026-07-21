@@ -1,12 +1,22 @@
 """Community Mode: keyless discovery via eBay's public search pages.
 Polite by design — one request at a time, jittered pacing, backs off hard
-when eBay shows a robot check. The official Browse API (with keys) stays
-the preferred source; this keeps the app fully functional with zero accounts.
+when eBay shows a robot check. Uses curl_cffi for browser TLS fingerprinting
+(bypasses most bot detection). Falls back to httpx if curl_cffi unavailable.
+The official Browse API (with keys) stays the preferred source;
+this keeps the app fully functional with zero accounts.
 Parses the current 's-card' search-result markup (verified live 2026-07)."""
 import asyncio, random, re, time
 from datetime import datetime, timezone, timedelta
 
-import httpx
+HAS_CURL = False
+try:
+    from curl_cffi.requests import AsyncSession
+    HAS_CURL = True
+except ImportError:
+    pass
+
+if not HAS_CURL:
+    import httpx
 
 UA_POOL = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
@@ -17,6 +27,20 @@ BLOCK_SIGNS = ("Pardon Our Interruption", "robot-check", "captcha", "sec-cpt")
 MIN_INTERVAL = 3.0          # seconds between page fetches, plus jitter
 _last_fetch = [0.0]
 _NUM = re.compile(r"([\d,]+(?:\.\d+)?)")
+
+_curl_session = None
+_headers = {"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9"}
+
+async def _get_session():
+    global _curl_session
+    if HAS_CURL and _curl_session is None:
+        _curl_session = AsyncSession(impersonate="chrome124")
+        try:
+            await _curl_session.get("https://www.ebay.com", timeout=20)
+        except Exception:
+            pass
+    return _curl_session
 
 def build_url(t):
     base = "https://www.ebay.com/sch"
@@ -92,12 +116,16 @@ async def _get(client, url, params=None):
     wait = MIN_INTERVAL + random.uniform(0, 2) - (time.time() - _last_fetch[0])
     if wait > 0:
         await asyncio.sleep(wait)
+    ua = random.choice(UA_POOL)
     try:
-        r = await client.get(url, params=params, timeout=25, follow_redirects=True,
-            headers={"User-Agent": random.choice(UA_POOL),
-                     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                     "Accept-Language": "en-US,en;q=0.9"})
-    except httpx.HTTPError:
+        if HAS_CURL:
+            sess = await _get_session()
+            r = await sess.get(url, params=params, timeout=25,
+                headers={"User-Agent": ua, **_headers})
+        else:
+            r = await client.get(url, params=params, timeout=25, follow_redirects=True,
+                headers={"User-Agent": ua, **_headers})
+    except Exception:
         return "ERROR", ""
     finally:
         _last_fetch[0] = time.time()
@@ -105,9 +133,12 @@ async def _get(client, url, params=None):
         return "BLOCKED", ""
     return ("OK", r.text) if r.status_code == 200 else ("ERROR", "")
 
-async def fetch_search(client, t):
+async def fetch_search(t, client=None):
     url, params = build_url(t)
     status, html = await _get(client, url, params)
+    if status == "BLOCKED":
+        await asyncio.sleep(5)
+        status, html = await _get(client, url, params)
     return (status, parse_items(html)) if status == "OK" else (status, [])
 
 _END_PATTERNS = [
@@ -116,7 +147,7 @@ _END_PATTERNS = [
     re.compile(r'"endDate"\s*:\s*"([^"]+)"'),
 ]
 
-async def fetch_end_time(client, item_url):
+async def fetch_end_time(item_url, client=None):
     """Exact auction close from the item page (search cards only carry listed-date)."""
     status, html = await _get(client, item_url)
     if status != "OK":

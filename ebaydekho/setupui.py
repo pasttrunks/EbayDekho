@@ -110,8 +110,9 @@ summary:hover{color:var(--cyan)}
 <label>QUICK PRESETS</label>
 <div class=presets id=presets></div>
 <label>TARGET NAME</label>
-<input id=t-name placeholder='RTX 4070 · PS5 disc · Sony A7III…'>
-<p class=hint>What you'd type into eBay search.</p>
+<div style="display:flex;gap:8px"><input id=t-name placeholder='RTX 4070 · PS5 disc · Sony A7III…' style="flex:1">
+<button id=mic type=button title="Say the item name" style="width:40px;padding:0;background:#0b1226;border:1px solid var(--line);border-radius:9px;color:var(--dim);font-size:18px;cursor:pointer;transition:.2s">🎤</button></div>
+<p class=hint>What you'd type into eBay search. Tap the mic to speak it.</p>
 <label>SEARCH KEYWORDS <span style="opacity:.6">(comma-separated)</span></label>
 <input id=t-kw placeholder="rtx 4070, 4070">
 <p class=hint>Every spelling counts — include squashed variants like <b>4070rtx</b>. Most specific first.</p>
@@ -260,6 +261,14 @@ $("testkeys").onclick=async()=>{$("keyres").textContent="checking…";
 const r=await fetch("/api/ebay-test",{method:"POST",body:JSON.stringify({id:$("c-id").value.trim(),secret:$("c-sec").value.trim()})}).then(r=>r.json()).catch(()=>({ok:false}));
 $("keyres").style.color=r.ok?"var(--green)":"var(--red)";
 $("keyres").textContent=r.ok?"✓ keys work — LIVE mode unlocked":"✗ eBay rejected these — double-check both fields"};
+
+/* voice input */
+const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition||window.mozSpeechRecognition;
+if(SpeechRecognition){const rec=new SpeechRecognition();rec.lang="en-US";rec.interimResults=false;rec.continuous=false;
+$("mic").onclick=()=>{$("mic").style.color="var(--cyan)";$("mic").style.borderColor="var(--cyan)";rec.start()};
+rec.onresult=e=>{$("t-name").value=e.results[0][0].transcript;$("mic").style.color="var(--green)";$("mic").style.borderColor="var(--green)"};
+rec.onend=()=>{setTimeout(()=>{$("mic").style.color="";$("mic").style.borderColor=""},2000)}}
+else $("mic").style.display="none";
 
 $("arm").onclick=async()=>{$("e3").textContent="";
 if(!targets.length){show(1);return $("e1").textContent="add at least one target (or tap a preset)"}

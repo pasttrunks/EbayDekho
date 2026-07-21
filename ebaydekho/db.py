@@ -18,9 +18,32 @@ def init():
             end_time TEXT, first_seen TEXT, verdict TEXT, status TEXT, note TEXT,
             steal REAL, good REAL, fair REAL, legacy_id TEXT)""")
         c.execute("CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT)")
+        c.execute("""CREATE TABLE IF NOT EXISTS price_history(
+            item_id TEXT, price REAL, ts TEXT,
+            PRIMARY KEY (item_id, ts))""")
         cols = [r[1] for r in c.execute("PRAGMA table_info(items)")]   # migrate pre-0.3 db
         if "legacy_id" not in cols:
             c.execute("ALTER TABLE items ADD COLUMN legacy_id TEXT")
+
+def record_price(item_id, price):
+    with conn() as c:
+        c.execute("INSERT OR IGNORE INTO price_history(item_id,price,ts) VALUES(?,?,?)",
+            (item_id, price, now()))
+
+def _sparkline(item_id):
+    with conn() as c:
+        prices = [r["price"] for r in c.execute(
+            "SELECT price FROM price_history WHERE item_id=? ORDER BY ts DESC LIMIT 20",
+            (item_id,)).fetchall()][::-1]
+    if len(prices) < 2:
+        return ""
+    mn, mx = min(prices), max(prices)
+    span = mx - mn or 1
+    w, h = 240, 28
+    pts = [f"{int(w*i/(len(prices)-1))},{int(h-2-(p-mn)/span*(h-4))}" for i,p in enumerate(prices)]
+    d = "M " + " L ".join(pts)
+    color = "23,52,80" if len(prices) < 3 else ("46,230,168" if prices[-1] <= prices[0] else "255,90,122")
+    return f'<svg viewBox="0 0 {w} {h}" xmlns="http://www.w3.org/2000/svg"><path d="{d}" stroke="rgba({color},.8)"/><path d="{d}" stroke="rgba({color},.35)" stroke-width="5" filter="url(#b)"/><defs><filter id="b"><feGaussianBlur stdDeviation="3"/></filter></defs></svg>'
 
 def save_item(it):
     with conn() as c:
@@ -31,6 +54,7 @@ def save_item(it):
             ":steal,:good,:fair,:legacy_id)", it)
         if cur.rowcount == 0:
             c.execute("UPDATE items SET price=:price, landed=:landed, bids=:bids WHERE item_id=:item_id", it)
+        record_price(it["item_id"], it["price"])
         return cur.rowcount == 1
 
 def set_status(item_id, status):
@@ -73,4 +97,9 @@ def recent(limit=120):
             "calls": int(get_meta("calls_" + datetime.now(timezone.utc).strftime("%Y%m%d"))),
             "steals": c.execute("SELECT COUNT(*) n FROM items WHERE verdict='STEAL'").fetchone()["n"],
         }
-    return {"items": [dict(r) for r in rows], "stats": stats}
+        items = []
+        for r in rows:
+            d = dict(r)
+            d["sparkline"] = _sparkline(d["item_id"])
+            items.append(d)
+    return {"items": items, "stats": stats}

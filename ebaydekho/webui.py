@@ -1,10 +1,16 @@
-import json, threading, urllib.request, webbrowser
+import json, threading, urllib.request, webbrowser, queue
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from . import db, config
 from .setupui import SETUP_PAGE
 
+event_queue = queue.Queue()
+
+def push_item(item):
+    event_queue.put({"type": "new_item", "item": item})
+
 PAGE = """<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
 <title>EbayDekho // Deal Radar</title>
+<link rel=manifest href="/api/manifest.json">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel=stylesheet>
 <style>
 :root{--bg:#070b16;--panel:rgba(19,26,45,.78);--line:#233052;--txt:#e8eefb;--dim:#7f8cb0;
@@ -86,6 +92,7 @@ a.ghost:hover{border-color:var(--cyan);box-shadow:0 0 14px rgba(92,214,255,.25)}
 .toast{background:#0d1425;border:1px solid var(--line);border-left:3px solid var(--green);border-radius:10px;padding:10px 14px;font:12px "JetBrains Mono",monospace;box-shadow:0 8px 30px rgba(0,0,0,.5);animation:tin .3s}
 .toast b{color:var(--green)}
 @keyframes tin{from{opacity:0;transform:translateX(30px)}}
+.spark{height:28px;margin:2px 0 0}.spark svg{display:block;width:100%;height:28px;border-radius:4px}.spark path{fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
 </style>
 <header>
 <div class=radar><i></i></div>
@@ -141,15 +148,16 @@ return`<div class="card ${i.verdict}${isNew?" new":""}" style="animation-delay:$
 <i class=mark style="left:${pc(i.steal)}%"></i><i class=mark style="left:${pc(i.good)}%"></i><i class=mark style="left:${pc(i.fair)}%"></i>
 <i class=dot style="left:${dot}%;background:${col};box-shadow:0 0 10px ${col}"></i></div>
 <div class=scale><span>steal ${fmt0(i.steal)}</span><span>good ${fmt0(i.good)}</span><span>max ${fmt0(i.fair)}</span></div></div>
+${i.sparkline?`<div class=spark>${i.sparkline}</div>`:""}
 <div class=meta><span class="ends${leftMs(i.end_time)!=null&&leftMs(i.end_time)<6e5?" urgent":""}" data-end="${i.end_time||""}">${fmtLeft(leftMs(i.end_time))}</span>
 <span>${i.bids?i.bids+" bids · ":""}${i.fb_pct}% · ${i.fb_count}fb</span></div>
 ${i.note?`<div class=note>◈ ${esc(i.note)}</div>`:""}
 <div class=btns><a class=btn href="${esc(i.url)}" target=_blank>OPEN ON EBAY ↗</a>
-${i.buying.includes("AUCTION")&&i.end_time?`<a class="btn ghost" href="#" onclick="copyGixen(event,'${esc(i.legacy_id||i.item_id)}',${(Math.min(i.fair-i.shipping,i.fair)-0.01).toFixed(2)})">⌁ GIXEN</a>`:""}</div></div>`}
+${i.buying.includes("AUCTION")?`<a class="btn ghost" href="#" onclick="copyGixen(event,'${esc(i.legacy_id||i.item_id)}',${(Math.min(i.fair-i.shipping,i.fair)-0.01).toFixed(2)})">⌁ GIXEN</a>`:""}</div></div>`}
 
 function copyGixen(e,id,max){e.preventDefault();
-navigator.clipboard.writeText(id);
-toast(`⌁ item # <b>${id}</b> copied — set max <b>$${max}</b> at gixen.com · group it = first win cancels the rest`)}
+window.open("https://www.gixen.com/index.cgi?cmd="+id+"&max="+max+"&group=1","gixen");
+toast(`⌁ <b>${id}</b> sent to <b>Gixen</b> (max $${max}) — make sure you're logged in`)}
 
 function render(){
 const items=last.items.filter(i=>(fVerdict=="ALL"||i.verdict==fVerdict)&&(fTarget=="ALL"||i.target==fTarget));
@@ -171,6 +179,13 @@ last=j;render();j.items.forEach(i=>known.add(i.item_id));first=false}catch(e){}}
 setInterval(()=>{document.querySelectorAll(".ends[data-end]").forEach(el=>{const ms=leftMs(el.dataset.end||null);
 el.textContent=fmtLeft(ms);el.classList.toggle("urgent",ms!=null&&ms<6e5&&ms>0)})},1000);
 tick();setInterval(tick,15000);
+
+/* SSE push for real-time updates */
+if(window.EventSource&&"Notification"in window)Notification.requestPermission();
+if(window.EventSource){const es=new EventSource("/api/stream");
+es.addEventListener("new_item",e=>{try{const d=JSON.parse(e.data);if(d.verdict==="STEAL"||d.verdict==="GOOD"){
+if("Notification"in window&&Notification.permission==="granted")new Notification("EbayDekho "+d.verdict,{body:d.target+" · $"+Number(d.landed).toFixed(2),icon:"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='28' fill='%23070b16' stroke='%235cd6ff' stroke-width='2'/%3E%3Ccircle cx='32' cy='32' r='10' fill='%235cd6ff'/%3E%3C/svg%3E"});toast(`<b>${d.verdict}</b> · ${esc(d.target)} — $${Number(d.landed).toFixed(2)}`)}
+}catch(e){}},false);es.addEventListener("error",()=>{});}
 </script>"""
 
 def _configured():
@@ -218,6 +233,28 @@ class H(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
+        if self.path == "/api/manifest.json":
+            body = json.dumps({"name":"EbayDekho","short_name":"EbayDekho","start_url":"/","display":"standalone",
+                "background_color":"#070b16","theme_color":"#5cd6ff","description":"Ebay deal radar — real-time price alerts",
+                "icons":[{"src":"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='28' fill='%23070b16' stroke='%235cd6ff' stroke-width='2'/%3E%3Ccircle cx='32' cy='32' r='10' fill='%235cd6ff'/%3E%3C/svg%3E","sizes":"64x64","type":"image/svg+xml"}]})
+            return self._send(body.encode())
+        if self.path == "/api/stream":
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "keep-alive")
+            self.end_headers()
+            while True:
+                try:
+                    ev = event_queue.get(timeout=30)
+                    self.wfile.write(f"event: new_item\ndata: {json.dumps(ev['item'])}\n\n".encode())
+                    self.wfile.flush()
+                except queue.Empty:
+                    self.wfile.write(b": keepalive\n\n")
+                    self.wfile.flush()
+                except Exception:
+                    break
+            return
         if self.path.startswith("/api/items"):
             targets = config.load_targets()
             demo = getattr(config, "FORCE_DEMO", False)
