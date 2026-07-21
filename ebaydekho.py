@@ -4,13 +4,19 @@
   python ebaydekho.py setup    re-run the configuration wizard
   python ebaydekho.py demo     force demo mode (fake listings)
 """
-import asyncio, sys, random
+import asyncio, sys, random, threading
 from datetime import datetime, timezone
+from io import StringIO
 
 sys.dont_write_bytecode = True
+if sys.stdout is None:
+    sys.stdout = StringIO()
+if sys.stderr is None:
+    sys.stderr = StringIO()
 
 from ebaydekho import config, db, ebay, notify, scraper, updater, webui, wizard
 from ebaydekho.valuator import Matcher, evaluate
+from ebaydekho.desktop import HAS_PYWEBVIEW, HAS_TRAY
 
 FORCE_DEMO = "demo" in sys.argv
 
@@ -45,7 +51,7 @@ async def scout_loop():
             targets = config.load_targets()
             if not targets:
                 if armed_on != "waiting":
-                    print("[idle] no targets yet — finish setup in the browser tab", flush=True)
+                    print("[idle] no targets set — open EbayDekho window and configure", flush=True)
                     armed_on = "waiting"
                 await asyncio.sleep(5); continue
             if repr(targets) != armed_on:
