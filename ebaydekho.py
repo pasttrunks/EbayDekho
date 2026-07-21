@@ -16,8 +16,6 @@ if sys.stderr is None:
 
 from ebaydekho import config, db, ebay, notify, scraper, updater, webui, wizard
 from ebaydekho.valuator import Matcher, evaluate
-from ebaydekho.desktop import HAS_PYWEBVIEW, HAS_TRAY
-
 FORCE_DEMO = "demo" in sys.argv
 
 async def process(client, items, matcher, alert=True):

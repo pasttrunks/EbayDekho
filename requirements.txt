@@ -1,1 +1,3 @@
 httpx>=0.27
+PyQt5>=5.15
+PyQtWebEngine>=5.15

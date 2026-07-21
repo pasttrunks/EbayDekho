@@ -1,71 +1,56 @@
-"""Standalone desktop window — web UI inside the app, no external browser."""
+"""Standalone desktop window — Chromium inside the app (Qt5 WebEngine), no external browser."""
 
-import os, sys, threading
-from . import config
+import sys
+from PyQt5.QtWidgets import QApplication, QMainWindow, QSystemTrayIcon, QMenu
+from PyQt5.QtWebEngineWidgets import QWebEngineView
+from PyQt5.QtCore import QUrl
+from PyQt5.QtGui import QIcon, QPainter, QColor, QPixmap
 
-HAS_PYWEBVIEW = False
-try:
-    import webview
-    HAS_PYWEBVIEW = True
-except ImportError:
-    pass
 
-HAS_TRAY = False
-try:
-    import pystray
-    from PIL import Image, ImageDraw
-    HAS_TRAY = True
-except ImportError:
-    pass
-
-_window = None
-
-def _make_icon(size=64):
-    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(img)
+def _make_pixmap(size=64):
+    pix = QPixmap(size, size)
+    pix.fill(QColor(0, 0, 0, 0))
+    p = QPainter(pix)
+    p.setRenderHint(QPainter.Antialiasing)
+    p.setPen(QColor(92, 214, 255))
     cx, cy = size // 2, size // 2
     r = size // 2 - 2
-    draw.ellipse([cx - r, cy - r, cx + r, cy + r], outline=(92, 214, 255, 255), width=2)
-    draw.ellipse([cx - 4, cy - 4, cx + 4, cy + 4], fill=(92, 214, 255, 255))
-    return img
+    p.drawEllipse(cx - r, cy - r, r * 2, r * 2)
+    p.drawEllipse(cx - 4, cy - 4, 8, 8)
+    p.end()
+    return pix
 
-def _on_closing():
-    if HAS_TRAY and _window:
-        _window.hide()
-        return True
-    return False
-
-def _tray_open(icon, item):
-    if _window:
-        _window.show()
-
-def _tray_quit(icon, item):
-    icon.stop()
-    os._exit(0)
-
-def _run_tray():
-    menu = (
-        pystray.MenuItem("Open EbayDekho", _tray_open, default=True),
-        pystray.Menu.SEPARATOR,
-        pystray.MenuItem("Quit", _tray_quit),
-    )
-    pystray.Icon("ebaydekho", _make_icon(), "EbayDekho", menu).run()
 
 def start(port):
-    global _window
-    if not HAS_PYWEBVIEW:
-        import webbrowser
-        webbrowser.open(f"http://127.0.0.1:{port}")
-        return
-    try:
-        _window = webview.create_window(
-            "EbayDekho", f"http://127.0.0.1:{port}",
-            width=1200, height=800, min_size=(900, 600),
-            text_select=True, on_close=_on_closing)
-        if HAS_TRAY:
-            threading.Thread(target=_run_tray, daemon=True).start()
-        webview.start(gui="edgechromium" if sys.platform == "win32" else None)
-    except Exception as e:
-        print(f"[desktop] window failed: {e}", flush=True)
-        import webbrowser
-        webbrowser.open(f"http://127.0.0.1:{port}")
+    app = QApplication.instance() or QApplication(sys.argv)
+    app.setQuitOnLastWindowClosed(False)
+
+    win = QMainWindow()
+    win.setWindowTitle("EbayDekho")
+    win.resize(1200, 800)
+    win.setMinimumSize(900, 600)
+    win.setWindowIcon(QIcon(_make_pixmap()))
+
+    browser = QWebEngineView()
+    browser.setUrl(QUrl(f"http://127.0.0.1:{port}"))
+    win.setCentralWidget(browser)
+
+    tray = QSystemTrayIcon(QIcon(_make_pixmap()), app)
+    tray.setToolTip("EbayDekho")
+    menu = QMenu()
+    show_a = menu.addAction("Open EbayDekho")
+    show_a.triggered.connect(win.show)
+    menu.addSeparator()
+    quit_a = menu.addAction("Quit")
+    quit_a.triggered.connect(app.quit)
+    tray.setContextMenu(menu)
+    tray.activated.connect(lambda r: win.show() if r == QSystemTrayIcon.DoubleClick else None)
+
+    def _on_close(event):
+        event.ignore()
+        win.hide()
+
+    win.closeEvent = _on_close
+    tray.show()
+    win.show()
+    sys.exit(app.exec_())
