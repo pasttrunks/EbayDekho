@@ -1,9 +1,9 @@
 """Standalone desktop window — Chromium inside the app (Qt5 WebEngine), no external browser."""
 
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QSystemTrayIcon, QMenu
-from PyQt5.QtWebEngineWidgets import QWebEngineView
-from PyQt5.QtCore import QUrl
+from PyQt5.QtWidgets import QApplication, QMainWindow, QSystemTrayIcon, QMenu, QSizePolicy
+from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
+from PyQt5.QtCore import QUrl, Qt
 from PyQt5.QtGui import QIcon, QPainter, QColor, QPixmap
 
 
@@ -22,6 +22,8 @@ def _make_pixmap(size=64):
 
 
 def start(port):
+    QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
+
     app = QApplication.instance() or QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
 
@@ -32,6 +34,9 @@ def start(port):
     win.setWindowIcon(QIcon(_make_pixmap()))
 
     browser = QWebEngineView()
+    browser.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+    dpr = app.primaryScreen().devicePixelRatio()
+    browser.setZoomFactor(dpr)
     browser.setUrl(QUrl(f"http://127.0.0.1:{port}"))
     win.setCentralWidget(browser)
 
